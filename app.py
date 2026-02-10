@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """
 Flask API backend for Mr. Car application
-Serves vehicle data and market pricing to frontend
+Serves vehicle data and Gemini AI-powered market pricing to frontend
 """
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 # Add execution folder to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'execution'))
 
 from scrape_patentechile import get_car_info_by_plate
-from scrape_market_prices import search_market_price
+from gemini_valuation import get_vehicle_valuation
 from pricing_engine import PricingEngine
 
 app = Flask(__name__, static_folder='.')
@@ -47,12 +51,13 @@ def get_vehicle(plate):
 
 @app.route('/api/market-price', methods=['GET'])
 def get_market_price():
-    """Get market price estimation with complete pricing breakdown"""
+    """Get market price estimation using Gemini AI with complete pricing breakdown"""
     try:
         make = request.args.get('make')
         model = request.args.get('model')
         year = request.args.get('year')
-        mileage = request.args.get('mileage', 'N/A')
+        mileage = request.args.get('mileage', '0')
+        region = request.args.get('region', 'Santiago')
         
         if not all([make, model, year]):
             return jsonify({
@@ -60,31 +65,31 @@ def get_market_price():
                 "error": "Missing required parameters: make, model, year"
             }), 400
         
-        # Get market price from scraper
-        market_result = search_market_price(make, model, year)
+        # Get valuation from Gemini AI
+        valuation = get_vehicle_valuation(
+            year=year,
+            make=make,
+            model=model,
+            mileage=mileage,
+            region=region
+        )
         
-        # If no market price found, use estimation model
-        if not market_result.get('success') or not market_result.get('average_price'):
-            # Simple depreciation model for old cars
-            try:
-                car_age = 2026 - int(year)
-                # Estimate: $8M new, depreciate 12% per year
-                estimated_price = 8000000 * (0.88 ** car_age)
-                estimated_price = max(1500000, estimated_price)  # Minimum $1.5M
-                market_result['average_price'] = int(estimated_price)
-                market_result['estimated'] = True
-                market_result['success'] = True
-            except:
-                return jsonify({
-                    "success": False,
-                    "error": "Could not determine market price"
-                }), 500
+        gemini_data = valuation["data"]
+        sources = valuation["sources"]
+        
+        avg_price = gemini_data.get("avgPrice", 0)
+        
+        if not avg_price or avg_price <= 0:
+            return jsonify({
+                "success": False,
+                "error": "Gemini could not determine market price"
+            }), 500
         
         # Calculate complete pricing using pricing engine
         pricing_engine = PricingEngine()
-        pricing = pricing_engine.calculate_pricing(market_result['average_price'])
+        pricing = pricing_engine.calculate_pricing(avg_price)
         
-        # Combine market data with pricing calculations
+        # Build response
         response = {
             "success": True,
             "vehicle": {
@@ -94,20 +99,21 @@ def get_market_price():
                 "mileage": mileage
             },
             "market_data": {
-                "price": pricing['market_price'],
-                "estimated": market_result.get('estimated', False),
-                "num_listings": market_result.get('num_listings', 0),
-                "price_range": {
-                    "min": market_result.get('min_price'),
-                    "max": market_result.get('max_price')
-                }
+                "price": avg_price,
+                "min_price": gemini_data.get("minPrice"),
+                "max_price": gemini_data.get("maxPrice"),
+                "confidence": gemini_data.get("confidenceScore", 0),
+                "analysis": gemini_data.get("marketAnalysis", ""),
+                "estimated": False
             },
             "pricing": {
                 "market_price": pricing['market_price'],
                 "immediate_offer": pricing['immediate_offer'],
                 "consignment_liquidation": pricing['consignment_liquidation'],
                 "consignment_type": pricing['consignment_type']
-            }
+            },
+            "sources": sources,
+            "listings": gemini_data.get("foundListings", [])
         }
         
         return jsonify(response)
@@ -131,6 +137,6 @@ if __name__ == '__main__':
     print("📍 Access the web app: http://localhost:8080")
     print("📡 API endpoints:")
     print("   - GET /api/vehicle/<plate>")
-    print("   - GET /api/market-price?make=X&model=Y&year=Z")
+    print("   - GET /api/market-price?make=X&model=Y&year=Z&mileage=M")
     print("\n" + "="*60 + "\n")
     app.run(debug=True, host='0.0.0.0', port=8080)

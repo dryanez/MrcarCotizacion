@@ -393,8 +393,7 @@
             <div class="price-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                 <div class="price-label">💵 Valor de Mercado</div>
                 <div class="price-value" id="marketPrice">$--</div>
-                <div class="price-range" id="estimatedBadge" style="display: none;">📊 Estimación basada en depreciación
-                </div>
+                <div class="price-range" id="priceRange">Rango: $-- - $--</div>
             </div>
 
             <!-- Two columns for offers -->
@@ -403,15 +402,36 @@
                 <div class="price-box" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);">
                     <div class="price-label" style="font-size: 14px;">✅ Compra Inmediata</div>
                     <div class="price-value" style="font-size: 28px;" id="immediateOffer">$--</div>
-                    <div class="price-range" style="font-size: 11px;">Pago inmediato (52%)</div>
+                    <div class="price-range" style="font-size: 11px;">Pago directo al momento</div>
                 </div>
 
                 <!-- Consignment Liquidation -->
                 <div class="price-box" style="background: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%);">
                     <div class="price-label" style="font-size: 14px;">🤝 Consignación</div>
                     <div class="price-value" style="font-size: 28px;" id="consignmentPrice">$--</div>
-                    <div class="price-range" style="font-size: 11px;" id="consignmentFee">--</div>
+                    <div class="price-range" style="font-size: 11px;" id="consignmentFee">Liquidación neta</div>
                 </div>
+            </div>
+
+            <!-- Market Analysis -->
+            <div id="marketAnalysis" class="car-info" style="display: none; margin-bottom: 24px;">
+                <h3>📊 Análisis de Mercado</h3>
+                <p id="analysisText" style="color: #4a5568; line-height: 1.6; margin-bottom: 12px;"></p>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 13px; color: #718096;">Confianza:</span>
+                    <div style="flex: 1; background: #e2e8f0; border-radius: 8px; height: 8px; overflow: hidden;">
+                        <div id="confidenceBar"
+                            style="height: 100%; background: linear-gradient(135deg, #48bb78, #38a169); border-radius: 8px; transition: width 0.5s;">
+                        </div>
+                    </div>
+                    <span id="confidenceText" style="font-size: 13px; font-weight: 600; color: #48bb78;"></span>
+                </div>
+            </div>
+
+            <!-- Source Links -->
+            <div id="sourcesSection" class="car-info" style="display: none; margin-bottom: 24px;">
+                <h3>🔗 Fuentes y Listados</h3>
+                <div id="sourcesList" style="display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
 
             <button class="btn whatsapp-btn" onclick="sellWithUs()">
@@ -564,7 +584,7 @@
             document.getElementById('loading').classList.add('active');
 
             try {
-                // Get market price with complete pricing
+                // Get Gemini AI valuation
                 const { make, model, year } = carData;
                 const response = await fetch(`${API_BASE}/api/market-price?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}&mileage=${encodeURIComponent(mileage)}`);
                 const data = await response.json();
@@ -572,44 +592,73 @@
                 // Hide loading
                 document.getElementById('loading').classList.remove('active');
 
-                // Show quotation
+                if (!data.success) {
+                    throw new Error(data.error || 'Error al obtener cotización');
+                }
+
+                const formatter = new Intl.NumberFormat('es-CL', {
+                    style: 'currency',
+                    currency: 'CLP',
+                    minimumFractionDigits: 0
+                });
+
+                // Vehicle info
                 document.getElementById('q-make').textContent = make || '-';
                 document.getElementById('q-model').textContent = model || '-';
                 document.getElementById('q-year').textContent = year || '-';
                 document.getElementById('q-mileage').textContent = parseInt(mileage).toLocaleString('es-CL') + ' km';
 
-                if (data.success && data.pricing) {
-                    const formatter = new Intl.NumberFormat('es-CL', {
-                        style: 'currency',
-                        currency: 'CLP',
-                        minimumFractionDigits: 0
-                    });
+                // Market Price + Range
+                document.getElementById('marketPrice').textContent = formatter.format(data.pricing.market_price);
+                if (data.market_data.min_price && data.market_data.max_price) {
+                    document.getElementById('priceRange').textContent =
+                        `Rango: ${formatter.format(data.market_data.min_price)} - ${formatter.format(data.market_data.max_price)}`;
+                }
 
-                    // Market Price
-                    document.getElementById('marketPrice').textContent = formatter.format(data.pricing.market_price);
+                // Immediate Purchase Offer
+                document.getElementById('immediateOffer').textContent = formatter.format(data.pricing.immediate_offer);
 
-                    // Show estimated badge if price was estimated
-                    if (data.market_data.estimated) {
-                        document.getElementById('estimatedBadge').style.display = 'block';
-                    }
-
-                    // Immediate Purchase Offer (52%)
-                    document.getElementById('immediateOffer').textContent = formatter.format(data.pricing.immediate_offer);
-
-                    // Consignment Liquidation
-                    document.getElementById('consignmentPrice').textContent = formatter.format(data.pricing.consignment_liquidation);
-
-                    // Show consignment fee details
-                    if (data.pricing.consignment_type === 'PERCENTAGE_BASED') {
-                        document.getElementById('consignmentFee').textContent = 'Comisión: 5.355% (4.5% + IVA)';
-                    } else {
-                        document.getElementById('consignmentFee').textContent = 'Fee fijo: $428.400';
-                    }
+                // Consignment Liquidation
+                document.getElementById('consignmentPrice').textContent = formatter.format(data.pricing.consignment_liquidation);
+                if (data.pricing.consignment_type === 'PERCENTAGE_BASED') {
+                    document.getElementById('consignmentFee').textContent = 'Comisión: 5.355%';
                 } else {
-                    document.getElementById('marketPrice').textContent = 'Cotización personalizada';
-                    document.getElementById('immediateOffer').textContent = '--';
-                    document.getElementById('consignmentPrice').textContent = '--';
-                    document.getElementById('consignmentFee').textContent = 'Un experto te contactará';
+                    document.getElementById('consignmentFee').textContent = 'Fee fijo: $428.400';
+                }
+
+                // Market Analysis
+                if (data.market_data.analysis) {
+                    document.getElementById('marketAnalysis').style.display = 'block';
+                    document.getElementById('analysisText').textContent = data.market_data.analysis;
+                    const confidence = data.market_data.confidence || 0;
+                    document.getElementById('confidenceBar').style.width = confidence + '%';
+                    document.getElementById('confidenceText').textContent = confidence + '%';
+                }
+
+                // Source Links
+                const allSources = [...(data.sources || []), ...(data.listings || [])];
+                if (allSources.length > 0) {
+                    document.getElementById('sourcesSection').style.display = 'block';
+                    const sourcesList = document.getElementById('sourcesList');
+                    sourcesList.innerHTML = '';
+
+                    // Deduplicate
+                    const seen = new Set();
+                    allSources.forEach(source => {
+                        const url = source.uri || source.url;
+                        const title = source.title || 'Listado';
+                        if (url && !seen.has(url)) {
+                            seen.add(url);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.target = '_blank';
+                            link.textContent = `🔗 ${title}`;
+                            link.style.cssText = 'color: #667eea; text-decoration: none; font-size: 14px; padding: 8px 12px; background: white; border-radius: 8px; display: block; transition: background 0.2s;';
+                            link.onmouseenter = () => link.style.background = '#f0f0ff';
+                            link.onmouseleave = () => link.style.background = 'white';
+                            sourcesList.appendChild(link);
+                        }
+                    });
                 }
 
                 document.getElementById('quotation').classList.add('active');
