@@ -83,7 +83,7 @@ def get_vehicle_valuation(year: str, make: str, model: str, trim: str = "",
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash-preview-05-20',
+            model='gemini-2.0-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())],
