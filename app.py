@@ -20,20 +20,24 @@ from scrape_patentechile import get_car_info_by_plate
 from gemini_valuation import get_vehicle_valuation
 from pricing_engine import PricingEngine
 
-app = Flask(__name__, static_folder='.')
+# Determine base directory
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# Initialize Flask with standard static folder
+app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend access
 
 
 @app.route('/')
 def index():
     """Serve the main HTML page"""
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(BASE_DIR, 'index.html')
 
 
-@app.route('/<path:filename>')
+@app.route('/static/<path:filename>')
 def serve_static(filename):
     """Serve static files (images, css, js, etc.)"""
-    return send_from_directory('.', filename)
+    return send_from_directory(os.path.join(BASE_DIR, 'static'), filename)
 
 
 @app.route('/api/vehicle/<plate>', methods=['GET'])

@@ -295,7 +295,7 @@
 
 <body>
     <div class="wizard-container">
-        <div class="logo"><img src="mrcarlogo.png" alt="Mr. Car Logo"></div>
+        <div class="logo"><img src="/static/mrcarlogo.png" alt="Mr. Car Logo"></div>
         <p class="subtitle">Cotiza tu vehículo en minutos</p>
 
         <div class="progress-bar">
@@ -636,8 +636,12 @@
                     document.getElementById('confidenceText').textContent = confidence + '%';
                 }
 
-                // Source Links
+                // Source Links - Hidden per request (kept in formData for future use)
                 const allSources = [...(data.sources || []), ...(data.listings || [])];
+                formData.marketSources = allSources;
+                saveData();
+
+                /*
                 if (allSources.length > 0) {
                     document.getElementById('sourcesSection').style.display = 'block';
                     const sourcesList = document.getElementById('sourcesList');
@@ -661,6 +665,7 @@
                         }
                     });
                 }
+                */
 
                 document.getElementById('quotation').classList.add('active');
                 updateProgress();
