@@ -5,7 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mr. Car - Cotiza tu Auto</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/css/intlTelInput.css">
     <style>
+        .iti {
+            width: 100%;
+            display: block;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -350,7 +356,7 @@
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <div>
                         <label for="region" style="font-size: 14px; margin-bottom: 4px;">Región</label>
-                        <select id="region">
+                        <select id="region" onchange="updateCommunes()">
                             <option value="">Selecciona tu región</option>
                             <option value="RM">Metropolitana de Santiago</option>
                             <option value="I">Tarapacá</option>
@@ -372,7 +378,9 @@
                     </div>
                     <div>
                         <label for="commune" style="font-size: 14px; margin-bottom: 4px;">Comuna</label>
-                        <input type="text" id="commune" placeholder="Ej: Las Condes, Providencia...">
+                        <select id="commune" disabled>
+                            <option value="">Selecciona una región primero</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -499,18 +507,93 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/js/intlTelInput.min.js"></script>
     <script>
         const API_BASE = 'http://localhost:8080';
         let currentStep = 1;
         const totalSteps = 6;
         let formData = {};
         let carData = {};
+        let phoneInput = null;
 
-        // Load saved data
+        const regionsCommunes = {
+            "XV": ["Arica", "Camarones", "Putre", "General Lagos"],
+            "I": ["Iquique", "Alto Hospicio", "Pozo Almonte", "Camiña", "Colchane", "Huara", "Pica"],
+            "II": ["Antofagasta", "Mejillones", "Sierra Gorda", "Taltal", "Calama", "Ollagüe", "San Pedro de Atacama", "Tocopilla", "María Elena"],
+            "III": ["Copiapó", "Caldera", "Tierra Amarilla", "Chañaral", "Diego de Almagro", "Vallenar", "Alto del Carmen", "Freirina", "Huasco"],
+            "IV": ["La Serena", "Coquimbo", "Andacollo", "La Higuera", "Paiguano", "Vicuña", "Illapel", "Canela", "Los Vilos", "Salamanca", "Ovalle", "Combarbalá", "Monte Patria", "Punitaqui", "Río Hurtado"],
+            "V": ["Valparaíso", "Casablanca", "Concón", "Juan Fernández", "Puchuncaví", "Quintero", "Viña del Mar", "Isla de Pascua", "Los Andes", "Calle Larga", "Rinconada", "San Esteban", "La Ligua", "Cabildo", "Papudo", "Petorca", "Zapallar", "Quillota", "Calera", "Hijuelas", "La Cruz", "Nogales", "San Antonio", "Algarrobo", "Cartagena", "El Quisco", "El Tabo", "Santo Domingo", "San Felipe", "Catemu", "Llaillay", "Panquehue", "Putaendo", "Santa María", "Quilpué", "Limache", "Olmué", "Villa Alemana"],
+            "RM": ["Santiago", "Cerrillos", "Cerro Navia", "Conchalí", "El Bosque", "Estación Central", "Huechuraba", "Independencia", "La Cisterna", "La Florida", "La Granja", "La Pintana", "La Reina", "Las Condes", "Lo Barnechea", "Lo Espejo", "Lo Prado", "Macul", "Maipú", "Ñuñoa", "Pedro Aguirre Cerda", "Peñalolén", "Providencia", "Pudahuel", "Quilicura", "Quinta Normal", "Recoleta", "Renca", "San Joaquín", "San Miguel", "San Ramón", "Vitacura", "Puente Alto", "Pirque", "San José de Maipo", "Colina", "Lampa", "Til Til", "San Bernardo", "Buin", "Calera de Tango", "Paine", "Melipilla", "Alhué", "Curacaví", "María Pinto", "San Pedro", "Talagante", "El Monte", "Isla de Maipo", "Padre Hurtado", "Peñaflor"],
+            "VI": ["Rancagua", "Codegua", "Coinco", "Coltauco", "Doñihue", "Graneros", "Las Cabras", "Machalí", "Malloa", "Mostazal", "Olivar", "Peumo", "Pichidegua", "Quinta de Tilcoco", "Rengo", "Requínoa", "San Vicente", "Pichilemu", "La Estrella", "Litueche", "Marchihue", "Navidad", "Paredones", "San Fernando", "Chépica", "Chimbarongo", "Lolol", "Nancagua", "Palmilla", "Peralillo", "Placilla", "Pumanque", "Santa Cruz"],
+            "VII": ["Talca", "Constitución", "Curepto", "Empedrado", "Maule", "Pelarco", "Pencahue", "Río Claro", "San Clemente", "San Rafael", "Cauquenes", "Chanco", "Pelluhue", "Curicó", "Hualañé", "Licantén", "Molina", "Rauco", "Romeral", "Sagrada Familia", "Teno", "Vichuquén", "Linares", "Colbún", "Longaví", "Parral", "Retiro", "San Javier", "Villa Alegre", "Yerbas Buenas"],
+            "XVI": ["Chillán", "Bulnes", "Cobquecura", "Coelemu", "Coihueco", "Chillán Viejo", "El Carmen", "Ninhue", "Ñiquén", "Pemuco", "Pinto", "Portezuelo", "Quillón", "Quirihue", "Ránquil", "San Carlos", "San Fabián", "San Ignacio", "San Nicolás", "Treguaco", "Yungay"],
+            "VIII": ["Concepción", "Coronel", "Chiguayante", "Florida", "Hualqui", "Lota", "Penco", "San Pedro de la Paz", "Santa Juana", "Talcahuano", "Tomé", "Hualpén", "Lebu", "Arauco", "Cañete", "Contulmo", "Curanilahue", "Los Álamos", "Tirúa", "Los Ángeles", "Antuco", "Cabrero", "Laja", "Mulchén", "Nacimiento", "Negrete", "Quilaco", "Quilleco", "San Rosendo", "Santa Bárbara", "Tucapel", "Yumbel", "Alto Biobío"],
+            "IX": ["Temuco", "Carahue", "Cunco", "Curarrehue", "Freire", "Galvarino", "Gorbea", "Lautaro", "Loncoche", "Melipeuco", "Nueva Imperial", "Padre Las Casas", "Perquenco", "Pitrufquén", "Pucón", "Saavedra", "Teodoro Schmidt", "Toltén", "Vilcún", "Villarrica", "Cholchol", "Angol", "Collipulli", "Curacautín", "Ercilla", "Lonquimay", "Los Sauces", "Lumaco", "Purén", "Renaico", "Traiguén", "Victoria"],
+            "XIV": ["Valdivia", "Corral", "Lanco", "Los Lagos", "Máfil", "Mariquina", "Paillaco", "Panguipulli", "La Unión", "Futrono", "Lago Ranco", "Río Bueno"],
+            "X": ["Puerto Montt", "Calbuco", "Cochamó", "Fresia", "Frutillar", "Los Muermos", "Llanquihue", "Maullín", "Puerto Varas", "Castro", "Ancud", "Chonchi", "Curaco de Vélez", "Dalcahue", "Puqueldón", "Queilén", "Quellón", "Quemchi", "Quinchao", "Osorno", "Puerto Octay", "Purranque", "Puyehue", "Río Negro", "San Juan de la Costa", "San Pablo", "Chaitén", "Futaleufú", "Hualaihué", "Palena"],
+            "XI": ["Coyhaique", "Lago Verde", "Aysén", "Cisnes", "Guaitecas", "Cochrane", "O'Higgins", "Tortel", "Chile Chico", "Río Ibáñez"],
+            "XII": ["Punta Arenas", "Laguna Blanca", "Río Verde", "San Gregorio", "Cabo de Hornos (Ex Navarino)", "Antártica", "Porvenir", "Primavera", "Timaukel", "Natales", "Torres del Paine"]
+        };
+
+        function updateCommunes() {
+            const regionSelect = document.getElementById("region");
+            const communeSelect = document.getElementById("commune");
+            const selectedRegion = regionSelect.value;
+
+            // Clear current options
+            communeSelect.innerHTML = '<option value="">Selecciona tu comuna</option>';
+
+            if (selectedRegion && regionsCommunes[selectedRegion]) {
+                const communes = regionsCommunes[selectedRegion].sort();
+                communes.forEach(commune => {
+                    const option = document.createElement("option");
+                    option.value = commune;
+                    option.textContent = commune;
+                    communeSelect.appendChild(option);
+                });
+                communeSelect.disabled = false;
+            } else {
+                communeSelect.disabled = true;
+                communeSelect.innerHTML = '<option value="">Selecciona una región primero</option>';
+            }
+        }
+
+        // Load saved data and initialize elements
         window.onload = () => {
+            // Initialize Phone Input first
+            const input = document.getElementById("phone");
+            phoneInput = window.intlTelInput(input, {
+                initialCountry: "cl",
+                separateDialCode: true,
+                preferredCountries: ["cl", "ar", "pe", "bo"],
+                utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/js/utils.js",
+            });
+
             const saved = localStorage.getItem('mrcar_quotation');
             if (saved) {
                 formData = JSON.parse(saved);
+
+                // Restore Form Fields
+                if (formData.firstName) document.getElementById('firstName').value = formData.firstName;
+                if (formData.lastName) document.getElementById('lastName').value = formData.lastName;
+                if (formData.phone) phoneInput.setNumber(formData.phone);
+                if (formData.email) document.getElementById('email').value = formData.email;
+                if (formData.plate) document.getElementById('plate').value = formData.plate;
+                if (formData.mileage) document.getElementById('mileage').value = formData.mileage;
+                if (formData.version) document.getElementById('version').value = formData.version;
+
+                // Restore Region and Commune
+                if (formData.region) {
+                    const regionSelect = document.getElementById('region');
+                    regionSelect.value = formData.region;
+
+                    // Trigger update to populate communes
+                    updateCommunes();
+
+                    if (formData.commune) {
+                        document.getElementById('commune').value = formData.commune;
+                    }
+                }
             }
         };
 
@@ -547,12 +630,12 @@
                     formData.lastName = lname;
                     break;
                 case 2:
-                    value = document.getElementById('phone').value.trim();
-                    if (!value) {
-                        showError('Por favor ingresa tu teléfono');
+                    // Use intl-tel-input validation and formatting
+                    if (!phoneInput.isValidNumber()) {
+                        showError('Por favor ingresa un número de teléfono válido');
                         return;
                     }
-                    formData.phone = value;
+                    formData.phone = phoneInput.getNumber(); // Get full international number E.164
                     break;
                 case 3:
                     value = document.getElementById('email').value.trim();
