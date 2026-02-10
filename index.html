@@ -307,9 +307,16 @@
         <!-- Step 1: Nombre y Apellido -->
         <div class="step active" data-step="1">
             <div class="question">
-                <label for="fullName">¿Cuál es tu nombre completo?</label>
-                <input type="text" id="fullName" placeholder="Juan Pérez" autofocus>
-                <div class="helper-text">Nombre y apellido</div>
+                <label>¿Cuál es tu nombre?</label>
+                <div style="display: flex; gap: 12px; margin-bottom: 0;">
+                    <div style="flex: 1;">
+                        <input type="text" id="firstName" placeholder="Nombre" autofocus>
+                    </div>
+                    <div style="flex: 1;">
+                        <input type="text" id="lastName" placeholder="Apellido">
+                    </div>
+                </div>
+                <div class="helper-text" style="margin-top: 8px;">Ingresa tu nombre y apellido</div>
             </div>
             <button class="btn" onclick="nextStep()">Continuar</button>
         </div>
@@ -336,8 +343,45 @@
             <button class="btn btn-secondary" onclick="prevStep()">Volver</button>
         </div>
 
-        <!-- Step 4: Patente -->
+        <!-- Step 4: Región y Comuna -->
         <div class="step" data-step="4">
+            <div class="question">
+                <label>¿Dónde te encuentras?</label>
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div>
+                        <label for="region" style="font-size: 14px; margin-bottom: 4px;">Región</label>
+                        <select id="region">
+                            <option value="">Selecciona tu región</option>
+                            <option value="RM">Metropolitana de Santiago</option>
+                            <option value="I">Tarapacá</option>
+                            <option value="II">Antofagasta</option>
+                            <option value="III">Atacama</option>
+                            <option value="IV">Coquimbo</option>
+                            <option value="V">Valparaíso</option>
+                            <option value="VI">O'Higgins</option>
+                            <option value="VII">Maule</option>
+                            <option value="VIII">Biobío</option>
+                            <option value="IX">Araucanía</option>
+                            <option value="X">Los Lagos</option>
+                            <option value="XI">Aysén</option>
+                            <option value="XII">Magallanes</option>
+                            <option value="XIV">Los Ríos</option>
+                            <option value="XV">Arica y Parinacota</option>
+                            <option value="XVI">Ñuble</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="commune" style="font-size: 14px; margin-bottom: 4px;">Comuna</label>
+                        <input type="text" id="commune" placeholder="Ej: Las Condes, Providencia...">
+                    </div>
+                </div>
+            </div>
+            <button class="btn" onclick="nextStep()">Continuar</button>
+            <button class="btn btn-secondary" onclick="prevStep()">Volver</button>
+        </div>
+
+        <!-- Step 5: Patente -->
+        <div class="step" data-step="5">
             <div class="question">
                 <label for="plate">¿Cuál es la patente de tu vehículo?</label>
                 <input type="text" id="plate" placeholder="ABCD12" maxlength="8" style="text-transform: uppercase">
@@ -347,12 +391,26 @@
             <button class="btn btn-secondary" onclick="prevStep()">Volver</button>
         </div>
 
-        <!-- Step 5: Kilometraje -->
-        <div class="step" data-step="5">
+        <!-- Step 6: Detalles del Vehículo (Version & KM) -->
+        <div class="step" data-step="6">
             <div class="question">
-                <label for="mileage">¿Cuántos kilómetros tiene tu vehículo?</label>
-                <input type="number" id="mileage" placeholder="50000">
-                <div class="helper-text">Ingresa el kilometraje sin puntos ni comas</div>
+                <label>Confirma los detalles</label>
+
+                <div class="car-info" id="scrapedInfo" style="margin-bottom: 20px; padding: 16px;">
+                    <div style="font-weight: bold; color: #667eea;" id="scrapedTitle">-</div>
+                    <div style="font-size: 14px; color: #718096;" id="scrapedYear">-</div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label for="version" style="font-size: 14px;">Versión (Opcional)</label>
+                    <input type="text" id="version" placeholder="Ej: GLX 2.0 Automatico">
+                    <div class="helper-text">Especifica la versión si la conoces</div>
+                </div>
+
+                <div>
+                    <label for="mileage" style="font-size: 14px;">Kilometraje Actual</label>
+                    <input type="number" id="mileage" placeholder="50000">
+                </div>
             </div>
             <button class="btn" onclick="generateQuotation()">Obtener Cotización</button>
             <button class="btn btn-secondary" onclick="prevStep()">Volver</button>
@@ -444,7 +502,7 @@
     <script>
         const API_BASE = 'http://localhost:8080';
         let currentStep = 1;
-        const totalSteps = 5;
+        const totalSteps = 6;
         let formData = {};
         let carData = {};
 
@@ -479,12 +537,14 @@
 
             switch (currentStep) {
                 case 1:
-                    value = document.getElementById('fullName').value.trim();
-                    if (!value) {
-                        showError('Por favor ingresa tu nombre completo');
+                    const fname = document.getElementById('firstName').value.trim();
+                    const lname = document.getElementById('lastName').value.trim();
+                    if (!fname || !lname) {
+                        showError('Por favor ingresa tu nombre y apellido');
                         return;
                     }
-                    formData.fullName = value;
+                    formData.firstName = fname;
+                    formData.lastName = lname;
                     break;
                 case 2:
                     value = document.getElementById('phone').value.trim();
@@ -501,6 +561,16 @@
                         return;
                     }
                     formData.email = value;
+                    break;
+                case 4:
+                    const region = document.getElementById('region').value;
+                    const commune = document.getElementById('commune').value.trim();
+                    if (!region || !commune) {
+                        showError('Por favor completa tu ubicación');
+                        return;
+                    }
+                    formData.region = region;
+                    formData.commune = commune;
                     break;
             }
 
@@ -556,9 +626,14 @@
                 // Hide loading
                 document.getElementById('loading').classList.remove('active');
 
-                // Go to next step
+                // Go to next step -> Step 6 (Details)
                 currentStep++;
                 document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('active');
+
+                // Prefill summary in Step 6
+                document.getElementById('scrapedTitle').textContent = `${data.make} ${data.model}`;
+                document.getElementById('scrapedYear').textContent = `Año: ${data.year}`;
+
                 updateProgress();
                 document.getElementById('mileage').focus();
 
@@ -571,6 +646,7 @@
 
         async function generateQuotation() {
             const mileage = document.getElementById('mileage').value.trim();
+            const version = document.getElementById('version').value.trim();
 
             if (!mileage || parseInt(mileage) < 0) {
                 showError('Por favor ingresa un kilometraje válido');
@@ -578,6 +654,7 @@
             }
 
             formData.mileage = mileage;
+            formData.version = version; // Save version
             saveData();
 
             // Show loading
@@ -596,6 +673,8 @@
                 if (!data.success) {
                     throw new Error(data.error || 'Error al obtener cotización');
                 }
+
+                formData.pricing = data.pricing; // Store pricing for submission
 
                 const formatter = new Intl.NumberFormat('es-CL', {
                     style: 'currency',
@@ -641,32 +720,6 @@
                 formData.marketSources = allSources;
                 saveData();
 
-                /*
-                if (allSources.length > 0) {
-                    document.getElementById('sourcesSection').style.display = 'block';
-                    const sourcesList = document.getElementById('sourcesList');
-                    sourcesList.innerHTML = '';
-
-                    // Deduplicate
-                    const seen = new Set();
-                    allSources.forEach(source => {
-                        const url = source.uri || source.url;
-                        const title = source.title || 'Listado';
-                        if (url && !seen.has(url)) {
-                            seen.add(url);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.target = '_blank';
-                            link.textContent = `🔗 ${title}`;
-                            link.style.cssText = 'color: #667eea; text-decoration: none; font-size: 14px; padding: 8px 12px; background: white; border-radius: 8px; display: block; transition: background 0.2s;';
-                            link.onmouseenter = () => link.style.background = '#f0f0ff';
-                            link.onmouseleave = () => link.style.background = 'white';
-                            sourcesList.appendChild(link);
-                        }
-                    });
-                }
-                */
-
                 document.getElementById('quotation').classList.add('active');
                 updateProgress();
 
@@ -677,18 +730,48 @@
             }
         }
 
-        function sellWithUs() {
-            const message = `Hola! Me interesa vender mi ${carData.make} ${carData.model} ${carData.year}. 
-Mi nombre es ${formData.fullName}
-Teléfono: ${formData.phone}
-Email: ${formData.email}
-Patente: ${formData.plate}
-Kilometraje: ${formData.mileage} km`;
+        async function sellWithUs() {
+            const btn = document.querySelector('.whatsapp-btn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Enviando...';
+            btn.disabled = true;
 
-            // Mr. Car WhatsApp number
-            const phone = '56968517995';
-            const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-            window.open(url, '_blank');
+            try {
+                const response = await fetch(`${API_BASE}/api/submit-lead`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('¡Gracias! Hemos recibido tu solicitud. Te hemos enviado un correo con los detalles.');
+
+                    // Create WhatsApp message
+                    const message = `Hola! Me interesa vender mi ${carData.make} ${carData.model} ${carData.year}. 
+Nombre: ${formData.firstName} ${formData.lastName}
+Región: ${formData.region}, ${formData.commune}
+Patente: ${formData.plate}
+Versión: ${formData.version || 'No especificada'}
+Kilometraje: ${formData.mileage} km
+Precio Mercado: $${formData.pricing.market_price}`;
+
+                    const phone = '56968517995';
+                    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                    window.open(url, '_blank');
+
+                } else {
+                    alert('Hubo un error al enviar tu solicitud. Por favor intenta de nuevo.');
+                }
+
+            } catch (error) {
+                console.error('Error submitting lead:', error);
+                alert('Error de conexión. Intenta nuevamente.');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
         }
 
         updateProgress();
