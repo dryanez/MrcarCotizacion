@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr. Car - Cotiza tu Auto</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .wizard-container {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 50px;
+            max-width: 650px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            min-height: 500px;
+            position: relative;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo img {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+        }
+
+        h1 {
+            color: #2d3748;
+            font-size: 32px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .progress-bar {
+            background: #e2e8f0;
+            height: 6px;
+            border-radius: 3px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .step {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .question {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            color: #2d3748;
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+            margin-top: 12px;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .quotation {
+            display: none;
+        }
+
+        .quotation.active {
+            display: block;
+        }
+
+        .car-info {
+            background: #f7fafc;
+            padding: 24px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+        }
+
+        .car-info h3 {
+            color: #667eea;
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .info-item {
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #718096;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .price-box {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            padding: 32px;
+            border-radius: 16px;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .price-label {
+            font-size: 16px;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+
+        .price-value {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .price-range {
+            font-size: 14px;
+            opacity: 0.85;
+        }
+
+        .whatsapp-btn {
+            background: #25D366;
+            font-size: 20px;
+            padding: 20px;
+        }
+
+        .whatsapp-btn:hover {
+            background: #1fb854;
+        }
+
+        .error {
+            background: #fed7d7;
+            border: 2px solid #fc8181;
+            color: #c53030;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .helper-text {
+            font-size: 14px;
+            color: #718096;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wizard-container">
+        <div class="logo"><img src="mrcarlogo.png" alt="Mr. Car Logo"></div>
+        <h1>Mr. Car</h1>
+        <p class="subtitle">Cotiza tu vehículo en minutos</p>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+
+        <div class="error" id="errorMsg"></div>
+
+        <!-- Step 1: Nombre y Apellido -->
+        <div class="step active" data-step="1">
+            <div class="question">
+                <label for="fullName">¿Cuál es tu nombre completo?</label>
+                <input type="text" id="fullName" placeholder="Juan Pérez" autofocus>
+                <div class="helper-text">Nombre y apellido</div>
+            </div>
+            <button class="btn" onclick="nextStep()">Continuar</button>
+        </div>
+
+        <!-- Step 2: Teléfono -->
+        <div class="step" data-step="2">
+            <div class="question">
+                <label for="phone">¿Cuál es tu número de teléfono?</label>
+                <input type="tel" id="phone" placeholder="+56 9 1234 5678">
+                <div class="helper-text">Para contactarte sobre la cotización</div>
+            </div>
+            <button class="btn" onclick="nextStep()">Continuar</button>
+            <button class="btn btn-secondary" onclick="prevStep()">Volver</button>
+        </div>
+
+        <!-- Step 3: Email -->
+        <div class="step" data-step="3">
+            <div class="question">
+                <label for="email">¿Cuál es tu correo electrónico?</label>
+                <input type="email" id="email" placeholder="juan@example.com">
+                <div class="helper-text">Te enviaremos la cotización por email</div>
+            </div>
+            <button class="btn" onclick="nextStep()">Continuar</button>
+            <button class="btn btn-secondary" onclick="prevStep()">Volver</button>
+        </div>
+
+        <!-- Step 4: Patente -->
+        <div class="step" data-step="4">
+            <div class="question">
+                <label for="plate">¿Cuál es la patente de tu vehículo?</label>
+                <input type="text" id="plate" placeholder="ABCD12" maxlength="8" style="text-transform: uppercase">
+                <div class="helper-text">Ingresa la patente para obtener los datos del vehículo</div>
+            </div>
+            <button class="btn" onclick="fetchCarInfo()">Buscar Vehículo</button>
+            <button class="btn btn-secondary" onclick="prevStep()">Volver</button>
+        </div>
+
+        <!-- Step 5: Kilometraje -->
+        <div class="step" data-step="5">
+            <div class="question">
+                <label for="mileage">¿Cuántos kilómetros tiene tu vehículo?</label>
+                <input type="number" id="mileage" placeholder="50000">
+                <div class="helper-text">Ingresa el kilometraje sin puntos ni comas</div>
+            </div>
+            <button class="btn" onclick="generateQuotation()">Obtener Cotización</button>
+            <button class="btn btn-secondary" onclick="prevStep()">Volver</button>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Obteniendo la mejor cotización...</p>
+        </div>
+
+        <!-- Final Quotation -->
+        <div class="quotation" id="quotation">
+            <h2 style="text-align: center; margin-bottom: 24px; color: #2d3748;">Tu Cotización</h2>
+
+            <div class="car-info">
+                <h3>📋 Información del Vehículo</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Marca</div>
+                        <div class="info-value" id="q-make">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Modelo</div>
+                        <div class="info-value" id="q-model">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Año</div>
+                        <div class="info-value" id="q-year">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Kilometraje</div>
+                        <div class="info-value" id="q-mileage">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Market Price -->
+            <div class="price-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="price-label">💵 Valor de Mercado</div>
+                <div class="price-value" id="marketPrice">$--</div>
+                <div class="price-range" id="estimatedBadge" style="display: none;">📊 Estimación basada en depreciación
+                </div>
+            </div>
+
+            <!-- Two columns for offers -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <!-- Immediate Purchase Offer -->
+                <div class="price-box" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);">
+                    <div class="price-label" style="font-size: 14px;">✅ Compra Inmediata</div>
+                    <div class="price-value" style="font-size: 28px;" id="immediateOffer">$--</div>
+                    <div class="price-range" style="font-size: 11px;">Pago inmediato (52%)</div>
+                </div>
+
+                <!-- Consignment Liquidation -->
+                <div class="price-box" style="background: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%);">
+                    <div class="price-label" style="font-size: 14px;">🤝 Consignación</div>
+                    <div class="price-value" style="font-size: 28px;" id="consignmentPrice">$--</div>
+                    <div class="price-range" style="font-size: 11px;" id="consignmentFee">--</div>
+                </div>
+            </div>
+
+            <button class="btn whatsapp-btn" onclick="sellWithUs()">
+                📱 Vende con Nosotros
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let currentStep = 1;
+        const totalSteps = 5;
+        let formData = {};
+        let carData = {};
+
+        // Load saved data
+        window.onload = () => {
+            const saved = localStorage.getItem('mrcar_quotation');
+            if (saved) {
+                formData = JSON.parse(saved);
+            }
+        };
+
+        function updateProgress() {
+            const progress = (currentStep / totalSteps) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function saveData() {
+            localStorage.setItem('mrcar_quotation', JSON.stringify(formData));
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMsg');
+            errorEl.textContent = message;
+            errorEl.classList.add('active');
+            setTimeout(() => errorEl.classList.remove('active'), 5000);
+        }
+
+        function nextStep() {
+            // Validate current step
+            let valid = true;
+            let value = '';
+
+            switch (currentStep) {
+                case 1:
+                    value = document.getElementById('fullName').value.trim();
+                    if (!value) {
+                        showError('Por favor ingresa tu nombre completo');
+                        return;
+                    }
+                    formData.fullName = value;
+                    break;
+                case 2:
+                    value = document.getElementById('phone').value.trim();
+                    if (!value) {
+                        showError('Por favor ingresa tu teléfono');
+                        return;
+                    }
+                    formData.phone = value;
+                    break;
+                case 3:
+                    value = document.getElementById('email').value.trim();
+                    if (!value || !value.includes('@')) {
+                        showError('Por favor ingresa un email válido');
+                        return;
+                    }
+                    formData.email = value;
+                    break;
+            }
+
+            saveData();
+
+            // Hide current step
+            document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('active');
+
+            // Show next step
+            currentStep++;
+            document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('active');
+            updateProgress();
+
+            // Focus first input
+            const nextInput = document.querySelector(`.step[data-step="${currentStep}"] input`);
+            if (nextInput) nextInput.focus();
+        }
+
+        function prevStep() {
+            document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('active');
+            currentStep--;
+            document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('active');
+            updateProgress();
+        }
+
+        async function fetchCarInfo() {
+            const plate = document.getElementById('plate').value.trim().toUpperCase();
+
+            if (!plate) {
+                showError('Por favor ingresa una patente');
+                return;
+            }
+
+            formData.plate = plate;
+            saveData();
+
+            // Show loading
+            document.querySelector(`.step[data-step="${currentStep}"]`).style.display = 'none';
+            document.getElementById('loading').classList.add('active');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/vehicle/${plate}`);
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Error al buscar el vehículo');
+                }
+
+                carData = data;
+                formData.carData = data;
+                saveData();
+
+                // Hide loading
+                document.getElementById('loading').classList.remove('active');
+
+                // Go to next step
+                currentStep++;
+                document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('active');
+                updateProgress();
+                document.getElementById('mileage').focus();
+
+            } catch (error) {
+                document.getElementById('loading').classList.remove('active');
+                document.querySelector(`.step[data-step="${currentStep}"]`).style.display = 'block';
+                showError(error.message);
+            }
+        }
+
+        async function generateQuotation() {
+            const mileage = document.getElementById('mileage').value.trim();
+
+            if (!mileage || parseInt(mileage) < 0) {
+                showError('Por favor ingresa un kilometraje válido');
+                return;
+            }
+
+            formData.mileage = mileage;
+            saveData();
+
+            // Show loading
+            document.querySelector(`.step[data-step="${currentStep}"]`).style.display = 'none';
+            document.getElementById('loading').classList.add('active');
+
+            try {
+                // Get market price with complete pricing
+                const { make, model, year } = carData;
+                const response = await fetch(`${API_BASE}/api/market-price?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}&mileage=${encodeURIComponent(mileage)}`);
+                const data = await response.json();
+
+                // Hide loading
+                document.getElementById('loading').classList.remove('active');
+
+                // Show quotation
+                document.getElementById('q-make').textContent = make || '-';
+                document.getElementById('q-model').textContent = model || '-';
+                document.getElementById('q-year').textContent = year || '-';
+                document.getElementById('q-mileage').textContent = parseInt(mileage).toLocaleString('es-CL') + ' km';
+
+                if (data.success && data.pricing) {
+                    const formatter = new Intl.NumberFormat('es-CL', {
+                        style: 'currency',
+                        currency: 'CLP',
+                        minimumFractionDigits: 0
+                    });
+
+                    // Market Price
+                    document.getElementById('marketPrice').textContent = formatter.format(data.pricing.market_price);
+
+                    // Show estimated badge if price was estimated
+                    if (data.market_data.estimated) {
+                        document.getElementById('estimatedBadge').style.display = 'block';
+                    }
+
+                    // Immediate Purchase Offer (52%)
+                    document.getElementById('immediateOffer').textContent = formatter.format(data.pricing.immediate_offer);
+
+                    // Consignment Liquidation
+                    document.getElementById('consignmentPrice').textContent = formatter.format(data.pricing.consignment_liquidation);
+
+                    // Show consignment fee details
+                    if (data.pricing.consignment_type === 'PERCENTAGE_BASED') {
+                        document.getElementById('consignmentFee').textContent = 'Comisión: 5.355% (4.5% + IVA)';
+                    } else {
+                        document.getElementById('consignmentFee').textContent = 'Fee fijo: $428.400';
+                    }
+                } else {
+                    document.getElementById('marketPrice').textContent = 'Cotización personalizada';
+                    document.getElementById('immediateOffer').textContent = '--';
+                    document.getElementById('consignmentPrice').textContent = '--';
+                    document.getElementById('consignmentFee').textContent = 'Un experto te contactará';
+                }
+
+                document.getElementById('quotation').classList.add('active');
+                updateProgress();
+
+            } catch (error) {
+                document.getElementById('loading').classList.remove('active');
+                document.querySelector(`.step[data-step="${currentStep}"]`).style.display = 'block';
+                showError('Error al generar la cotización: ' + error.message);
+            }
+        }
+
+        function sellWithUs() {
+            const message = `Hola! Me interesa vender mi ${carData.make} ${carData.model} ${carData.year}. 
+Mi nombre es ${formData.fullName}
+Teléfono: ${formData.phone}
+Email: ${formData.email}
+Patente: ${formData.plate}
+Kilometraje: ${formData.mileage} km`;
+
+            // Mr. Car WhatsApp number
+            const phone = '56968517995';
+            const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+            window.open(url, '_blank');
+        }
+
+        updateProgress();
+    </script>
+</body>
+
+</html>
