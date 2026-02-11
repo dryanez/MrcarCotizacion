@@ -10,6 +10,10 @@ import json
 import re
 from google import genai
 from google.genai import types
+try:
+    from execution.rate_limiter import RateLimiter
+except ImportError:
+    from rate_limiter import RateLimiter
 
 
 def get_vehicle_valuation(year: str, make: str, model: str, trim: str = "",
@@ -34,6 +38,10 @@ def get_vehicle_valuation(year: str, make: str, model: str, trim: str = "",
         raise ValueError("Google API Key is missing. Set GOOGLE_API_KEY in .env")
     
     client = genai.Client(api_key=api_key)
+    
+    # Check rate limit (1000 requests/day)
+    limiter = RateLimiter(limit=1000)
+    limiter.check_and_increment()
     
     prompt = f"""
     Act as a senior vehicle appraiser specializing EXCLUSIVELY in the Chilean automotive market (Chile).

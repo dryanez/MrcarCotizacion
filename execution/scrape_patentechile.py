@@ -10,6 +10,11 @@ import re
 from google import genai
 from google.genai import types
 
+try:
+    from execution.rate_limiter import RateLimiter
+except ImportError:
+    from rate_limiter import RateLimiter
+
 
 def get_car_info_by_plate(plate: str) -> dict:
     """
@@ -42,6 +47,10 @@ def get_car_info_by_plate(plate: str) -> dict:
         return result
     
     client = genai.Client(api_key=api_key)
+
+    # Check rate limit (1000 requests/day)
+    limiter = RateLimiter(limit=1000)
+    limiter.check_and_increment()
     
     prompt = f"""
     Busca información del vehículo con patente (placa) "{plate}" en Chile.
