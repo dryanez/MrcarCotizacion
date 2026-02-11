@@ -229,16 +229,20 @@ def submit_lead():
                 </div>
                 """
 
+                # FORCE TEST EMAIL: Always send to mrcarfy@gmail.com in dev mode
+                # because Resend only allows sending to verified email without a domain.
+                verified_email = "mrcarfy@gmail.com"
+                
                 resend.Emails.send({
                     "from": "Mr. Car <onboarding@resend.dev>",
-                    "to": data.get('email'),
-                    "subject": f"🚗 Cotización Recibida - {data.get('carData', {}).get('make')} {data.get('carData', {}).get('model')}",
+                    "to": verified_email,  # Override user email for testing
+                    "subject": f"[TESTING] 🚗 Cotización para {data.get('email')} - {data.get('carData', {}).get('make')}",
                     "html": user_html
                 })
-                print(f"✅ Email sent to user: {data.get('email')}")
+                print(f"✅ Email sent to TEST address: {verified_email} (intended for {data.get('email')})")
 
                 # Email to Admin
-                admin_email = os.environ.get("ADMIN_EMAIL", "contacto@mrcar.cl")
+                admin_email = os.environ.get("ADMIN_EMAIL", verified_email)
                 resend.Emails.send({
                     "from": "Mr. Car System <onboarding@resend.dev>",
                     "to": admin_email,

@@ -816,10 +816,18 @@
         async function sellWithUs() {
             const btn = document.querySelector('.whatsapp-btn');
             const originalText = btn.textContent;
+            
+            // Open window immediately to avoid popup blocker
+            const whatsappWindow = window.open('', '_blank');
+            if (whatsappWindow) {
+                whatsappWindow.document.write('Cargando WhatsApp...');
+            }
+
             btn.textContent = 'Enviando...';
             btn.disabled = true;
 
             try {
+                // Submit lead data
                 const response = await fetch(`${API_BASE}/api/submit-lead`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -829,8 +837,6 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('¡Gracias! Hemos recibido tu solicitud. Te hemos enviado un correo con los detalles.');
-
                     // Create WhatsApp message
                     const message = `Hola! Me interesa vender mi ${carData.make} ${carData.model} ${carData.year}. 
 Nombre: ${formData.firstName} ${formData.lastName}
@@ -840,16 +846,26 @@ Versión: ${formData.version || 'No especificada'}
 Kilometraje: ${formData.mileage} km
 Precio Mercado: $${formData.pricing.market_price}`;
 
-                    const phone = '56968517995';
+                    const phone = '56968517995'; // Mr. Car Number
                     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-                    window.open(url, '_blank');
+                    
+                    if (whatsappWindow) {
+                        whatsappWindow.location.href = url;
+                    } else {
+                        // Fallback if window failed to open
+                        window.location.href = url;
+                    }
+                    
+                    alert('¡Gracias! Hemos recibido tu solicitud. Te hemos enviado un correo con los detalles.');
 
                 } else {
+                    if (whatsappWindow) whatsappWindow.close();
                     alert('Hubo un error al enviar tu solicitud. Por favor intenta de nuevo.');
                 }
 
             } catch (error) {
                 console.error('Error submitting lead:', error);
+                if (whatsappWindow) whatsappWindow.close();
                 alert('Error de conexión. Intenta nuevamente.');
             } finally {
                 btn.textContent = originalText;
