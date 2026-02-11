@@ -4,6 +4,9 @@
 # Excel data files (too large for git)
 *.xlsx
 
+# SQLite vehicle database (too large for git, build from xlsx files)
+vehicles.db
+
 # Environment variables and secrets
 .env
 
