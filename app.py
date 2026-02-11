@@ -17,7 +17,9 @@ load_dotenv()
 # Add execution folder to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'execution'))
 
-from scrape_patentechile import get_car_info_by_plate
+# Scraper imports are lazy (inside route handlers) because they require
+# Chrome/Selenium which is not available in serverless environments (Vercel).
+# from scrape_patentechile import get_car_info_by_plate
 from gemini_valuation import get_vehicle_valuation
 from pricing_engine import PricingEngine
 
@@ -64,6 +66,7 @@ def get_vehicle(plate):
     try:
         # Try primary source (PatenteChile)
         print(f"🚗 Attempting primary scraper (PatenteChile) for {plate}...")
+        from scrape_patentechile import get_car_info_by_plate
         result = get_car_info_by_plate(plate)
         
         if result.get("success"):
