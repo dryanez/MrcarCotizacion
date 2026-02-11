@@ -1,20 +1,34 @@
 #!/usr/bin/env python3
 """
-Vehicle Lookup from SQLite database.
-Fast, efficient, and deployable vehicle plate lookups.
+Vehicle Lookup from Supabase Postgres.
+Fast, cloud-hosted, and deployable vehicle plate lookups.
 """
 
 import os
 import sys
 import json
-import sqlite3
+from supabase import create_client, Client
+from dotenv import load_dotenv
 
-# Database path
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'vehicles.db')
+load_dotenv()
+
+# Initialize Supabase client (cached)
+_supabase_client = None
+
+def get_supabase_client():
+    """Get or create Supabase client."""
+    global _supabase_client
+    if _supabase_client is None:
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY")
+        if url and key and "your" not in url:
+            _supabase_client = create_client(url, key)
+    return _supabase_client
+
 
 def get_car_info_by_plate(plate):
     """
-    Look up vehicle info by plate number using SQLite database.
+    Look up vehicle info by plate number using Supabase Postgres.
     Returns dict with same signature as the old scraper for compatibility.
     """
     plate = plate.upper().strip()
@@ -30,29 +44,21 @@ def get_car_info_by_plate(plate):
         "error": None
     }
 
-    if not os.path.exists(DB_PATH):
-        result["error"] = f"Vehicle database not found. Run build_vehicle_db.py first."
+    supabase = get_supabase_client()
+    
+    if not supabase:
+        result["error"] = "Supabase not configured. Check SUPABASE_URL and SUPABASE_KEY in .env"
         return result
 
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
+        response = supabase.table("vehicles").select("make, model, year").eq("plate", plate).limit(1).execute()
         
-        cursor.execute('''
-            SELECT make, model, year 
-            FROM vehicles 
-            WHERE plate = ? 
-            LIMIT 1
-        ''', (plate,))
-        
-        row = cursor.fetchone()
-        conn.close()
-        
-        if row:
+        if response.data and len(response.data) > 0:
+            vehicle = response.data[0]
             result["success"] = True
-            result["make"] = row[0]
-            result["model"] = row[1]
-            result["year"] = str(row[2]) if row[2] else None
+            result["make"] = vehicle.get("make")
+            result["model"] = vehicle.get("model")
+            result["year"] = str(vehicle.get("year")) if vehicle.get("year") else None
         else:
             result["error"] = f"Patente {plate} no encontrada en la base de datos"
     
