@@ -2,8 +2,5 @@ flask
 flask-cors
 google-genai
 python-dotenv
-selenium
-beautifulsoup4
-webdriver-manager
 supabase
 resend
