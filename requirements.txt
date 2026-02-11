@@ -7,3 +7,4 @@ beautifulsoup4
 webdriver-manager
 supabase
 resend
+undetected-chromedriver

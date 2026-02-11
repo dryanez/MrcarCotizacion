@@ -62,7 +62,30 @@ def serve_static(filename):
 def get_vehicle(plate):
     """Get vehicle information by plate number"""
     try:
+        # Try primary source (PatenteChile)
+        print(f"🚗 Attempting primary scraper (PatenteChile) for {plate}...")
         result = get_car_info_by_plate(plate)
+        
+        if result.get("success"):
+            return jsonify(result)
+            
+        print(f"⚠️ Primary scraper failed: {result.get('error')}")
+        
+        # Try secondary source (VolanteOMaleta)
+        print(f"🚗 Attempting secondary scraper (VolanteOMaleta) for {plate}...")
+        try:
+            from scrape_volanteomaleta import get_car_info_by_plate as get_volante_info
+            result_volante = get_volante_info(plate)
+            
+            if result_volante.get("success"):
+                return jsonify(result_volante)
+                
+            print(f"⚠️ Secondary scraper failed: {result_volante.get('error')}")
+            
+        except Exception as e:
+            print(f"❌ Error importing/running secondary scraper: {e}")
+
+        # If both fail, return the error from the primary (or combined)
         return jsonify(result)
     except Exception as e:
         return jsonify({

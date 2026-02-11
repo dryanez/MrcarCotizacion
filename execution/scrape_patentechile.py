@@ -1,31 +1,26 @@
 #!/usr/bin/env python3
 """
-Scraper for patentechile.com using Selenium (handles JavaScript)
-Retrieves Chilean vehicle information by license plate for FREE.
+Scraper for patentechile.com using undetected-chromedriver to bypass Cloudflare.
+Retrieves Chilean vehicle information by license plate.
 """
 
-from selenium import webdriver
+import time
+import sys
+import os
+import json
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-import time
+from bs4 import BeautifulSoup
 import re
-from typing import Dict
 
-def get_car_info_by_plate(plate: str, headless: bool = True) -> Dict[str, any]:
+def get_car_info_by_plate(plate):
     """
     Scrape patentechile.com to get car information by license plate.
-    
-    Args:
-        plate: Chilean license plate (e.g., "LXBW68")
-        headless: Run browser in headless mode (default True)
-    
-    Returns:
-        Dictionary with car information
+    Uses undetected-chromedriver to bypass Cloudflare Turnstile.
     """
-    
     plate = plate.upper().strip()
     
     result = {
@@ -34,184 +29,170 @@ def get_car_info_by_plate(plate: str, headless: bool = True) -> Dict[str, any]:
         "make": None,
         "model": None,
         "year": None,
-        "owner_name": None,
-        "owner_rut": None,
+        "owner": None,
+        "rut": None,
         "error": None
     }
     
     driver = None
-    
     try:
-        # Setup Chrome options
-        chrome_options = Options()
-        if headless:
-            chrome_options.add_argument('--headless=new')  # Use new headless mode
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--disable-gpu')
-        chrome_options.add_argument('--window-size=1920,1080')
-        chrome_options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
-        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+        # Configure undetected-chromedriver
+        options = uc.ChromeOptions()
+        # Headless mode allows Cloudflare to detect us more easily.
+        # We try to mitigate this with arguments and persistent profile.
+        options.add_argument('--headless=new')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--window-size=1920,1080')
+        options.add_argument('--start-maximized')
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        # options.add_argument(f'--user-data-dir={os.getcwd()}/.tmp/chrome_profile_patente') # Disabled to save space
         
-        # Let Selenium Manager handle driver download automatically
-        print(f"🌐 Opening browser...")
-        from selenium.webdriver.chrome.service import Service
-        service = Service()  # Selenium Manager will auto-download matching driver
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        driver.implicitly_wait(10)
+        # Consistent User Agent
+        options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36')
+
+        # Initialize driver
+        print(f"🌐 Opening browser (stealth mode)...", file=sys.stderr)
+        driver = uc.Chrome(options=options, version_main=144) # Explicitly set version to match installed Chrome
         
-        # Navigate to the website
-        print(f"📍 Navigating to patentechile.com...")
-        driver.get("https://www.patentechile.com/")
+        # Navigate to site
+        url = "https://patentechile.com/"
+        print(f"📍 Navigating to {url}...", file=sys.stderr)
+        driver.get(url)
         
-        # Wait for page to load
-        time.sleep(2)
-        
-        # Find the search input
-        print(f"🔍 Searching for plate: {plate}...")
+        # Wait specifically for Cloudflare to clear
+        # We wait for the input element to appear
+        print(f"🔍 Waiting for search input...", file=sys.stderr)
         try:
-            search_input = WebDriverWait(driver, 10).until(
+            # Check if we are stuck on Cloudflare
+            try:
+                iframe = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.XPATH, "//iframe[starts-with(@src, 'https://challenges.cloudflare.com/')]"))
+                )
+                if iframe:
+                    print("⚠️ Cloudflare challenge detected. Attempting to solve...", file=sys.stderr)
+                    driver.switch_to.frame(iframe)
+                    try:
+                        checkbox = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.XPATH, "//input[@type='checkbox']"))
+                        )
+                        checkbox.click()
+                        print("✅ Clicked Cloudflare checkbox", file=sys.stderr)
+                    except:
+                        pass # Might not be a checkbox, just a wait
+                    driver.switch_to.default_content()
+                    time.sleep(5)
+            except:
+                pass # No iframe found, proceed
+
+            # Try to click "Patente" tab if it exists (sometimes it defaults to RUT or other)
+            try:
+                patente_tab = driver.find_element(By.XPATH, "//button[contains(text(), 'Patente')] | //a[contains(text(), 'Patente')]")
+                patente_tab.click()
+                time.sleep(1)
+            except:
+                pass
+
+            search_input = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.ID, "inputTerm"))
             )
         except TimeoutException:
-            result["error"] = "Could not find search input field"
+            # Capture debug info if we timeout (likely stuck at challenge)
+            driver.save_screenshot('.tmp/selenium_timeout.png')
+            with open('.tmp/selenium_timeout.html', 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+            result["error"] = "Timeout waiting for search input (Cloudflare check?)"
             return result
-        
-        # Enter the plate number
+
+        # Perform search
+        print(f"⌨️ Entering plate: {plate}...", file=sys.stderr)
         search_input.clear()
         search_input.send_keys(plate)
-        time.sleep(1)
+        time.sleep(0.5)
         
-        # Click the search button using JavaScript to bypass ads
+        # Click search button
         try:
             search_btn = driver.find_element(By.ID, "searchBtn")
-            # Scroll to button first
-            driver.execute_script("arguments[0].scrollIntoView(true);", search_btn)
-            time.sleep(1)
-            # Click using JavaScript to bypass any overlays
             driver.execute_script("arguments[0].click();", search_btn)
-            print("✓ Search button clicked")
         except NoSuchElementException:
-            result["error"] = "Could not find search button"
+            result["error"] = "Search button not found"
             return result
+            
+        # Wait for results
+        print("⏳ Waiting for results...", file=sys.stderr)
+        time.sleep(3) # Give time for JS to load
         
-        # Wait for results page to load
-        print("⏳ Waiting for results...")
-        time.sleep(5)  # Give time for JavaScript to load results
-        
-        # Try to detect if we're on a results page
-        current_url = driver.current_url
-        print(f"Current URL: {current_url}")
-        
-        # Save screenshot for debugging
-        driver.save_screenshot('.tmp/selenium_screenshot.png')
-        print("📸 Screenshot saved to .tmp/selenium_screenshot.png")
-        
-        # Get page source
-        page_source = driver.page_source
-        
-        # Save HTML for debugging
-        with open('.tmp/selenium_page.html', 'w', encoding='utf-8') as f:
-            f.write(page_source)
-        print("💾 HTML saved to .tmp/selenium_page.html")
-        
-        # Parse with BeautifulSoup
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(page_source, 'html.parser')
-        
-        # Find the results table
+        # Parse results
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
         results_table = soup.find('table', {'id': 'tbl-results'})
         
-        if results_table:
-            # Extract data from table rows
-            rows = results_table.find_all('tr')
+        if not results_table:
+            # Check for "Not Found" message
+            if "No se encontraron registros" in driver.page_source:
+                result["error"] = "Patente no encontrada"
+                return result
             
-            # Flag to know when we're in the vehicle info section
-            in_vehicle_section = False
+            # Save debug if table missing but no error msg
+            driver.save_screenshot('.tmp/selenium_no_table.png')
+            result["error"] = "Results table not found"
+            return result
             
-            for row in rows:
-                cells = row.find_all('td')
-                
-                # Check if this is a section header
-                if len(cells) == 1 and cells[0].get('colspan') == '2':
-                    header_text = cells[0].get_text().strip().lower()
-                    in_vehicle_section = 'vehicular' in header_text
-                    continue
-                
-                if len(cells) == 2:
-                    # Get the label (first cell) and value (second cell)
-                    label = cells[0].get_text().strip().replace('\xa0', '').lower()
-                    value = cells[1].get_text().strip()
-                    
-                    if 'marca' in label:
-                        result["make"] = value
-                    elif 'modelo' in label:
-                        result["model"] = value
-                    elif 'año' in label and in_vehicle_section:
-                        # Only extract year from vehicle section, not payment section
-                        # Extract just the year number (e.g. "2006" from "2006" or "2025 (PAGO TOTAL)")
-                        import re
-                        year_match = re.search(r'\b(19|20)\d{2}\b', value)
-                        if year_match:
-                            result["year"] = year_match.group(0)
-                    elif 'nombre' in label:
-                        result["owner_name"] = value
-                    elif 'rut' in label:
-                        result["owner_rut"] = value
-            
-            # Check if we got data
-            if result["make"] or result["model"] or result["year"]:
-                result["success"] = True
-                print(f"✅ Successfully retrieved data for {plate}")
-            else:
-                result["error"] = "No vehicle data found in table. Check .tmp/selenium_page.html"
-                print(f"❌ No data extracted for {plate}")
-        else:
-            result["error"] = "Results table not found. Check .tmp/selenium_page.html"
-            print(f"❌ Table not found for {plate}")
+        # Extract data
+        rows = results_table.find_all('tr')
+        in_vehicle_section = False
         
+        for row in rows:
+            cells = row.find_all('td')
+            
+            # Check section headers
+            if len(cells) == 1 and cells[0].get('colspan') == '2':
+                header = cells[0].get_text().strip().lower()
+                if 'vehicular' in header:
+                    in_vehicle_section = True
+                else:
+                    in_vehicle_section = False
+                continue
+            
+            # Check data rows
+            if len(cells) == 2:
+                label = cells[0].get_text().strip().lower()
+                value = cells[1].get_text().strip()
+                
+                if 'marca' in label:
+                    result["make"] = value
+                elif 'modelo' in label:
+                    result["model"] = value
+                elif 'año' in label and in_vehicle_section:
+                    # Extract year
+                    year_match = re.search(r'\b(19|20)\d{2}\b', value)
+                    if year_match:
+                        result["year"] = year_match.group(0)
+                        
+                # Owner info (if needed)
+                elif 'nombre' in label:
+                    result["owner"] = value
+                elif 'rut' in label:
+                    result["rut"] = value
+
+        if result["make"] or result["model"]:
+            result["success"] = True
+            print(f"✅ Data found: {result['make']} {result['model']} {result['year']}", file=sys.stderr)
+        else:
+            result["error"] = "Data extracted but empty fields"
+
     except Exception as e:
-        result["error"] = f"Unexpected error: {str(e)}"
-        print(f"❌ Error: {e}")
+        result["error"] = f"Scraper error: {str(e)}"
+        print(f"❌ Exception: {e}", file=sys.stderr)
         
     finally:
         if driver:
-            driver.quit()
-    
+            try:
+                driver.quit()
+            except:
+                pass
+                
     return result
 
-
-def main():
-    """Test the scraper"""
-    import sys
-    
-    if len(sys.argv) > 1:
-        plate = sys.argv[1]
-    else:
-        plate = "LXBW68"  # Default test plate
-    
-    print(f"\n{'='*60}")
-    print(f"🚗 Searching for plate: {plate}")
-    print(f"{'='*60}\n")
-    
-    info = get_car_info_by_plate(plate, headless=True)  # Set to False to see browser
-    
-    print(f"\n{'='*60}")
-    print("📊 RESULTS:")
-    print(f"{'='*60}")
-    print(f"✓ Success:    {info['success']}")
-    print(f"📋 Plate:      {info['plate']}")
-    print(f"🏢 Make:       {info['make']}")
-    print(f"🚙 Model:      {info['model']}")
-    print(f"📅 Year:       {info['year']}")
-    print(f"👤 Owner:      {info['owner_name']}")
-    print(f"🆔 RUT:        {info['owner_rut']}")
-    
-    if info.get('error'):
-        print(f"\n❌ Error: {info['error']}")
-    
-    print(f"{'='*60}\n")
-
-
 if __name__ == "__main__":
-    main()
+    test_plate = sys.argv[1] if len(sys.argv) > 1 else "LXBW68"
+    print(json.dumps(get_car_info_by_plate(test_plate), indent=2, ensure_ascii=False))
