@@ -50,6 +50,7 @@
             height: 120px;
             object-fit: cover;
             border-radius: 50%;
+            border: 5px solid white;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
         }
 
@@ -816,7 +817,7 @@
         async function sellWithUs() {
             const btn = document.querySelector('.whatsapp-btn');
             const originalText = btn.textContent;
-            
+
             console.log("🚀 Starting sellWithUs process...");
             console.log("📦 Data being sent:", JSON.parse(JSON.stringify(formData))); // Deep copy for log safety
 
@@ -844,7 +845,7 @@
 
                 if (result.success) {
                     console.log("✅ Lead submitted successfully. Details:", result.details);
-                    
+
                     // Create WhatsApp message
                     const message = `Hola! Me interesa vender mi ${carData.make} ${carData.model} ${carData.year}. 
 Nombre: ${formData.firstName} ${formData.lastName}
@@ -856,14 +857,14 @@ Precio Mercado: $${formData.pricing.market_price}`;
 
                     const phone = '56968517995'; // Mr. Car Number
                     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-                    
+
                     if (whatsappWindow) {
                         whatsappWindow.location.href = url;
                     } else {
                         // Fallback if window failed to open
                         window.location.href = url;
                     }
-                    
+
                     alert('¡Gracias! Hemos recibido tu solicitud. Te hemos enviado un correo con los detalles.');
 
                 } else {
