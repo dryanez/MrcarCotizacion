@@ -66,13 +66,16 @@ def get_vehicle_valuation(year: str, make: str, model: str, trim: str = "",
        - If you find a listing on Chileautos or MercadoLibre, copy the URL into the 'foundListings' array in the JSON.
        - The user needs to click these links to verify the price.
 
+    4. NO ANALYSIS:
+       - DO NOT generate any market analysis, commentary, or explanation.
+       - Provide ONLY the numerical data and confidence score.
+
     RETURN JSON ONLY (No markdown):
     {{
       "minPrice": number (integer, CLP),
       "maxPrice": number (integer, CLP),
       "avgPrice": number (integer, CLP),
       "currency": "CLP",
-      "marketAnalysis": "string (2-3 sentences explaining availability and price range)",
       "confidenceScore": number (0-100),
       "foundListings": [
          {{ 
