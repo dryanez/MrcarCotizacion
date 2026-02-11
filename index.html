@@ -785,7 +785,8 @@
                 // Consignment Liquidation
                 document.getElementById('consignmentPrice').textContent = formatter.format(data.pricing.consignment_liquidation);
                 if (data.pricing.consignment_type === 'PERCENTAGE_BASED') {
-                    document.getElementById('consignmentFee').textContent = 'Comisión: 4.5% + IVA';
+                    const feeAmount = data.pricing.market_price - data.pricing.consignment_liquidation;
+                    document.getElementById('consignmentFee').textContent = `Comisión: ${formatter.format(feeAmount)} (4.5% + IVA)`;
                 } else {
                     document.getElementById('consignmentFee').textContent = 'Comisión base $428.400 IVA incluido';
                 }
