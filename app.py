@@ -18,7 +18,7 @@ load_dotenv()
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'execution'))
 
 # Scraper imports
-from scrape_patentechile import get_car_info_by_plate
+from vehicle_lookup import get_car_info_by_plate
 from gemini_valuation import get_vehicle_valuation
 from pricing_engine import PricingEngine
 

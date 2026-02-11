@@ -1,6 +1,9 @@
 # Temporary files and intermediates
 .tmp/
 
+# Excel data files (too large for git)
+*.xlsx
+
 # Environment variables and secrets
 .env
 
