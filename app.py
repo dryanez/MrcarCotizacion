@@ -257,6 +257,7 @@ def submit_lead():
                 # Don't fail the request if DB fails, still try to email
         
         # 2. Send Emails (if Resend is configured)
+        email_status = "skipped"
         resend_key = os.environ.get("RESEND_API_KEY")
         if resend_key and "your" not in resend_key:
             try:
@@ -274,6 +275,7 @@ def submit_lead():
                     "html": user_html
                 })
                 print(f"✅ Email sent to TEST address: {verified_email} (intended for {data.get('email')})")
+                email_status = "sent_to_test_address"
 
                 # Email to Admin (Reuse the same HTML but with a different title)
                 admin_html = _generate_email_html(data, title="🔔 Nuevo Lead Recibido")
@@ -289,10 +291,18 @@ def submit_lead():
 
             except Exception as email_err:
                 print(f"❌ Error sending email: {email_err}")
+                email_status = f"error: {str(email_err)}"
         else:
             print("⚠️ Resend API Key missing or invalid. Skipping email sending.")
+            email_status = "missing_api_key"
 
-        return jsonify({"success": True})
+        return jsonify({
+            "success": True, 
+            "details": {
+                "db": "saved" if supabase else "skipped_no_client",
+                "email": email_status
+            }
+        })
 
     except Exception as e:
         import traceback

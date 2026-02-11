@@ -789,14 +789,14 @@
                     document.getElementById('consignmentFee').textContent = 'Fee fijo: $428.400';
                 }
 
-                // Market Analysis
-                if (data.market_data.analysis) {
-                    document.getElementById('marketAnalysis').style.display = 'block';
-                    document.getElementById('analysisText').textContent = data.market_data.analysis;
-                    const confidence = data.market_data.confidence || 0;
-                    document.getElementById('confidenceBar').style.width = confidence + '%';
-                    document.getElementById('confidenceText').textContent = confidence + '%';
-                }
+                // Market Analysis - HIDDEN PER USER REQUEST
+                // if (data.market_data.analysis) {
+                //     document.getElementById('marketAnalysis').style.display = 'block';
+                //     document.getElementById('analysisText').textContent = data.market_data.analysis;
+                //     const confidence = data.market_data.confidence || 0;
+                //     document.getElementById('confidenceBar').style.width = confidence + '%';
+                //     document.getElementById('confidenceText').textContent = confidence + '%';
+                // }
 
                 // Source Links - Hidden per request (kept in formData for future use)
                 const allSources = [...(data.sources || []), ...(data.listings || [])];
@@ -817,6 +817,9 @@
             const btn = document.querySelector('.whatsapp-btn');
             const originalText = btn.textContent;
             
+            console.log("🚀 Starting sellWithUs process...");
+            console.log("📦 Data being sent:", JSON.parse(JSON.stringify(formData))); // Deep copy for log safety
+
             // Open window immediately to avoid popup blocker
             const whatsappWindow = window.open('', '_blank');
             if (whatsappWindow) {
@@ -828,15 +831,20 @@
 
             try {
                 // Submit lead data
+                console.log("📡 Sending POST request to /api/submit-lead");
                 const response = await fetch(`${API_BASE}/api/submit-lead`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
 
+                console.log("📥 Response status:", response.status);
                 const result = await response.json();
+                console.log("📄 Response body:", result);
 
                 if (result.success) {
+                    console.log("✅ Lead submitted successfully. Details:", result.details);
+                    
                     // Create WhatsApp message
                     const message = `Hola! Me interesa vender mi ${carData.make} ${carData.model} ${carData.year}. 
 Nombre: ${formData.firstName} ${formData.lastName}
@@ -859,14 +867,15 @@ Precio Mercado: $${formData.pricing.market_price}`;
                     alert('¡Gracias! Hemos recibido tu solicitud. Te hemos enviado un correo con los detalles.');
 
                 } else {
+                    console.error("❌ Stats returned success: false. Error:", result.error);
                     if (whatsappWindow) whatsappWindow.close();
-                    alert('Hubo un error al enviar tu solicitud. Por favor intenta de nuevo.');
+                    alert('Hubo un error al enviar tu solicitud: ' + (result.error || 'Error desconocido'));
                 }
 
             } catch (error) {
-                console.error('Error submitting lead:', error);
+                console.error('❌ Network or processing error:', error);
                 if (whatsappWindow) whatsappWindow.close();
-                alert('Error de conexión. Intenta nuevamente.');
+                alert('Error de conexión. Intenta nuevamente. Revisa la consola para más detalles.');
             } finally {
                 btn.textContent = originalText;
                 btn.disabled = false;
