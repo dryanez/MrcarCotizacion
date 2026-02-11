@@ -149,6 +149,71 @@ def get_market_price():
         }), 500
 
 
+
+def _generate_email_html(lead_data, title="¡Gracias por confiar en Nosotros!"):
+    """Generate consistent HTML email for both user and admin"""
+    try:
+        pricing = lead_data.get('pricing', {}) or {}
+        car_data = lead_data.get('carData', {}) or {}
+        
+        # Safe currency formatting helper
+        def format_currency(value):
+            try:
+                if value is None: return "0"
+                return f"{int(value):,}"
+            except (ValueError, TypeError):
+                return str(value)
+
+        market_price = format_currency(pricing.get('market_price', 0))
+        immediate_offer = format_currency(pricing.get('immediate_offer', 0))
+        consignment_liquidation = format_currency(pricing.get('consignment_liquidation', 0))
+        
+        return f"""
+    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #667eea; text-align: center;">{title}</h2>
+        <p>Estimado(a) <strong>{lead_data.get('firstName')} {lead_data.get('lastName')}</strong>,</p>
+        <p>Hemos recibido los detalles de la cotización:</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; border: 1px solid #eee;">
+            <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Nombre:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('firstName')} {lead_data.get('lastName')}</td></tr>
+            <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Teléfono:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('phone')}</td></tr>
+            <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Email:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('email')}</td></tr>
+            <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Región:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('region')}</td></tr>
+            <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Comuna:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('commune')}</td></tr>
+            <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Patente:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('plate', '').upper()}</td></tr>
+            <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Marca:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{car_data.get('make')}</td></tr>
+            <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Modelo:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{car_data.get('model')}</td></tr>
+            <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Versión:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('version', 'No especificado')}</td></tr>
+            <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Año:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{car_data.get('year')}</td></tr>
+            <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Kilometraje:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('mileage')} km</td></tr>
+        </table>
+
+        <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #e2e8f0;">
+            <h3 style="color: #2d3748; margin-top: 0; text-align: center;">Resumen de Valoración</h3>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e0; padding: 8px 0;">
+                <span>Valor de Mercado:</span>
+                <strong>${market_price}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e0; padding: 8px 0;">
+                <span>Oferta Inmediata:</span>
+                <strong>${immediate_offer}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <span>Consignación:</span>
+                <strong>${consignment_liquidation}</strong>
+            </div>
+        </div>
+
+        <p style="margin-top: 30px; text-align: center; color: #718096; font-size: 14px;">
+            © 2026 Mr. Car - Todos los derechos reservados.
+        </p>
+    </div>
+    """
+    except Exception as e:
+        print(f"❌ Error generating email HTML: {e}")
+        return f"<pre>Error generating HTML: {e}</pre>"
+
+
 @app.route('/api/submit-lead', methods=['POST'])
 def submit_lead():
     """
@@ -168,9 +233,6 @@ def submit_lead():
         if supabase:
             try:
                 # Prepare data for insertion (match your DB schema)
-                # We save the raw JSON in a 'data' column if schema is strict, 
-                # or map fields if you have specific columns.
-                # For safety, let's assume a 'leads' table exists.
                 lead_entry = {
                     "first_name": data.get('firstName'),
                     "last_name": data.get('lastName'),
@@ -195,55 +257,9 @@ def submit_lead():
                 # Don't fail the request if DB fails, still try to email
         
         # 2. Send Emails (if Resend is configured)
-        if os.environ.get("RESEND_API_KEY") and "your" not in os.environ.get("RESEND_API_KEY"):
+        resend_key = os.environ.get("RESEND_API_KEY")
+        if resend_key and "your" not in resend_key:
             try:
-                def _generate_email_html(lead_data, title="¡Gracias por confiar en Nosotros!"):
-                    """Generate consistent HTML email for both user and admin"""
-                    pricing = lead_data.get('pricing', {})
-                    car_data = lead_data.get('carData', {})
-                    
-                    return f"""
-                <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #667eea; text-align: center;">{title}</h2>
-                    <p>Estimado(a) <strong>{lead_data.get('firstName')} {lead_data.get('lastName')}</strong>,</p>
-                    <p>Hemos recibido los detalles de la cotización:</p>
-                    
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; border: 1px solid #eee;">
-                        <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Nombre:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('firstName')} {lead_data.get('lastName')}</td></tr>
-                        <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Teléfono:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('phone')}</td></tr>
-                        <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Email:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('email')}</td></tr>
-                        <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Región:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('region')}</td></tr>
-                        <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Comuna:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('commune')}</td></tr>
-                        <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Patente:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('plate', '').upper()}</td></tr>
-                        <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Marca:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{car_data.get('make')}</td></tr>
-                        <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Modelo:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{car_data.get('model')}</td></tr>
-                        <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Versión:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('version', 'No especificado')}</td></tr>
-                        <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Año:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{car_data.get('year')}</td></tr>
-                        <tr style="background-color: #f8f9fa;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #eee;">Kilometraje:</td><td style="padding: 10px; border-bottom: 1px solid #eee;">{lead_data.get('mileage')} km</td></tr>
-                    </table>
-
-                    <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #e2e8f0;">
-                        <h3 style="color: #2d3748; margin-top: 0; text-align: center;">Resumen de Valoración</h3>
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e0; padding: 8px 0;">
-                            <span>Valor de Mercado:</span>
-                            <strong>${int(pricing.get('market_price', 0)):,}</strong>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e0; padding: 8px 0;">
-                            <span>Oferta Inmediata:</span>
-                            <strong>${int(pricing.get('immediate_offer', 0)):,}</strong>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-                            <span>Consignación:</span>
-                            <strong>${int(pricing.get('consignment_liquidation', 0)):,}</strong>
-                        </div>
-                    </div>
-
-                    <p style="margin-top: 30px; text-align: center; color: #718096; font-size: 14px;">
-                        © 2026 Mr. Car - Todos los derechos reservados.
-                    </p>
-                </div>
-                """
-
                 # Email to User
                 user_html = _generate_email_html(data)
 
@@ -273,6 +289,8 @@ def submit_lead():
 
             except Exception as email_err:
                 print(f"❌ Error sending email: {email_err}")
+        else:
+            print("⚠️ Resend API Key missing or invalid. Skipping email sending.")
 
         return jsonify({"success": True})
 
