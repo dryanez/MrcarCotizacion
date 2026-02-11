@@ -152,6 +152,9 @@ def get_market_price():
 
 def _generate_email_html(lead_data, title="¡Gracias por confiar en Nosotros!"):
     """Generate consistent HTML email for both user and admin"""
+    # Production URL for images (adjust if your Vercel domain is different)
+    # logo_url = "https://mrcar-cotizacion.vercel.app/static/mrcarlogo.png"
+    
     try:
         pricing = lead_data.get('pricing', {}) or {}
         car_data = lead_data.get('carData', {}) or {}
@@ -170,7 +173,10 @@ def _generate_email_html(lead_data, title="¡Gracias por confiar en Nosotros!"):
         
         return f"""
     <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #667eea; text-align: center;">{title}</h2>
+        <div style="text-align: center; margin-bottom: 24px;">
+            <img src="https://mrcar-cotizacion.vercel.app/static/mrcarlogo.png" alt="Mr. Car" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+        </div>
+        <h2 style="color: #667eea; text-align: center; margin-top: 0;">{title}</h2>
         <p>Estimado(a) <strong>{lead_data.get('firstName')} {lead_data.get('lastName')}</strong>,</p>
         <p>Hemos recibido los detalles de la cotización:</p>
         
