@@ -74,7 +74,7 @@ def get_car_info_by_plate(plate: str) -> dict:
         print(f"🔍 Looking up plate {plate} via Gemini AI...")
         
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())],
