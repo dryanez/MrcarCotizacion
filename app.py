@@ -44,8 +44,86 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # Initialize Flask with standard static folder
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend access
 
+# Security Configuration
+# 1. CORS: Restrict to production domain (and localhost for dev)
+CORS(app, resources={r"/api/*": {"origins": [
+    "https://mrcar-cotizacion.vercel.app", 
+    "http://localhost:8080", 
+    "http://127.0.0.1:8080"
+]}})
+
+# 2. Rate Limiting: Prevent scraping
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("security")
+
+# Get Redis URI from environment variable (default to memory for local dev)
+# Vercel provides: REDIS_URL or KV_URL usually
+# We'll look for RATELIMIT_STORAGE_URI first
+storage_uri = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri=storage_uri,
+    strategy="fixed-window" # diligent accounting
+)
+
+
+@app.before_request
+def log_request_info():
+    """Log details and ENFORCE security checks"""
+    ip = get_remote_address()
+    ua = request.user_agent.string
+    path = request.path
+    referrer = request.referrer or ""
+    origin = request.origin or ""
+
+    # 1. Simple check for blocked IPs
+    blocked_ips = os.environ.get("BLOCKED_IPS", "").split(",")
+    if ip in blocked_ips and ip:
+        logger.warning(f"⛔ BLOCKED IP: {ip}")
+        return jsonify({"error": "Access Denied"}), 403
+
+    # 2. BOT BLOCKING: Check User-Agent
+    # Block common bot footprints if not explicitly allowed
+    lower_ua = ua.lower()
+    bad_keywords = ["python", "curl", "wget", "httpie", "postman", "insomnia", "scraper", "bot"]
+    if any(keyword in lower_ua for keyword in bad_keywords):
+        # Allow if it's a known search engine (optional, but good practice)
+        if "googlebot" not in lower_ua:
+            logger.warning(f"🤖 BLOCKED BOT: {ip} -> {ua}")
+            return jsonify({"error": "Browser required"}), 403
+
+    # 3. REFERER/ORIGIN CHECK (The 'Stateless' Wall)
+    # Only enforce on API mutations or sensitive GETs, or ALL API requests
+    # We'll enforce on everything starting with /api/
+    if path.startswith("/api/"):
+        allowed_domains = ["mrcar-cotizacion.vercel.app", "localhost", "127.0.0.1"]
+        
+        # Check if Referer OR Origin contains an allowed domain
+        is_valid_source = any(domain in referrer for domain in allowed_domains) or \
+                          any(domain in origin for domain in allowed_domains)
+        
+        # If no referer/origin is present, it's likely a script (browsers send it)
+        if not is_valid_source:
+             # STRICT MODE: If you are sure, uncomment the return below.
+             # For now, we log a warning to see if it works, then block.
+             logger.warning(f"⚠️ SUSPICIOUS ORIGIN: {ip} -> {path} | Ref: {referrer} | Origin: {origin}")
+             
+             # BLOCKING ACTION (Uncomment to enable)
+             # return jsonify({"error": "Invalid Origin"}), 403
+
+
+    # Log acceptably
+    if not path.startswith("/static"):
+        logger.info(f"✅ Request: {ip} -> {path} [{ua[:30]}...]")
 
 @app.route('/')
 def index():
@@ -60,6 +138,7 @@ def serve_static(filename):
 
 
 @app.route('/api/vehicle/<plate>', methods=['GET'])
+@limiter.limit("5 per minute")  # Strict limit for plate lookup
 def get_vehicle(plate):
     """Get vehicle information by plate number"""
     try:
@@ -73,6 +152,7 @@ def get_vehicle(plate):
 
 
 @app.route('/api/market-price', methods=['GET'])
+@limiter.limit("10 per minute")  # Allow slightly more for pricing checks
 def get_market_price():
     """Get market price estimation using Gemini AI with complete pricing breakdown"""
     try:
@@ -221,6 +301,7 @@ def _generate_email_html(lead_data, title="¡Gracias por confiar en Nosotros!"):
 
 
 @app.route('/api/submit-lead', methods=['POST'])
+@limiter.limit("3 per minute")  # Prevent spam submissions
 def submit_lead():
     """
     Submit lead data:
