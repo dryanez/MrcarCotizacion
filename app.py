@@ -131,6 +131,12 @@ def index():
     return send_from_directory(BASE_DIR, 'index.html')
 
 
+@app.route('/agendar')
+def agendar():
+    """Serve the scheduling page"""
+    return send_from_directory(BASE_DIR, 'agendar.html')
+
+
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     """Serve static files (images, css, js, etc.)"""
@@ -397,6 +403,115 @@ def submit_lead():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/schedule-appointment', methods=['POST'])
+@limiter.limit("3 per minute")
+def schedule_appointment():
+    """
+    Handle appointment scheduling:
+    1. Save to Leads table with type='schedule' and appointment_date
+    2. Send confirmation emails
+    """
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+
+        print("📅 Received scheduling data:", data)
+
+        # 1. Save to Supabase
+        if supabase:
+            try:
+                lead_entry = {
+                    "first_name": data.get('firstName'),
+                    "last_name": data.get('lastName'),
+                    "email": data.get('email'),
+                    "phone": data.get('phone'),
+                    "region": data.get('region'),
+                    "commune": data.get('commune'),
+                    "address": data.get('address'),
+                    "plate": data.get('plate'),
+                    "make": data.get('carData', {}).get('make'),
+                    "model": data.get('carData', {}).get('model'),
+                    "year": data.get('carData', {}).get('year'),
+                    "version": data.get('version'),
+                    "mileage": data.get('mileage'),
+                    # Specific fields for scheduling
+                    "lead_type": "schedule",
+                    "appointment_date": data.get('appointmentDate'),
+                    # Store as NULL for pricing fields as they aren't generated here
+                    "market_price": None,
+                    "immediate_offer": None,
+                    "consignment_price": None
+                }
+                
+                # We need to handle the case where columns might not exist if user didn't run migration
+                # But we'll assume they did or this will throw a visible error in logs
+                supabase.table('leads').insert(lead_entry).execute()
+                print("✅ Appointment saved to Supabase")
+            except Exception as db_err:
+                print(f"❌ Error saving to Supabase: {db_err}")
+                if "column" in str(db_err) and "does not exist" in str(db_err):
+                    return jsonify({
+                        "success": False, 
+                        "error": "Database schema update required. Please run the migration script."
+                    }), 500
+        
+        # 2. Send Emails
+        email_status = "skipped"
+        resend_key = os.environ.get("RESEND_API_KEY")
+        
+        if resend_key and "your" not in resend_key:
+            try:
+                # Custom HTML for Appointment
+                def generate_appointment_html(lead, title):
+                    return f"""
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+                        <div style="text-align: center; margin-bottom: 24px;">
+                            <img src="https://mrcar-cotizacion.vercel.app/static/mrcarlogo.png" style="width: 100px; height: 100px; border-radius: 50%;">
+                        </div>
+                        <h2 style="color: #f86120; text-align: center;">{title}</h2>
+                        
+                        <div style="background: #fff; border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                            <p style="font-size: 18px; text-align: center;">
+                                📅 <strong>Fecha Agendada:</strong><br>
+                                <span style="font-size: 24px; color: #2d3748;">{lead.get('appointmentDate')}</span>
+                            </p>
+                            
+                            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                            
+                            <p><strong>Cliente:</strong> {lead.get('firstName')} {lead.get('lastName')}</p>
+                            <p><strong>Teléfono:</strong> {lead.get('phone')}</p>
+                            <p><strong>Dirección:</strong> {lead.get('address')}, {lead.get('commune')} ({lead.get('region')})</p>
+                            <p><strong>Vehículo:</strong> {lead.get('carData', {}).get('make')} {lead.get('carData', {}).get('model')} ({lead.get('plate')})</p>
+                        </div>
+                    </div>
+                    """
+
+                verified_email = "mrcarfy@gmail.com"
+                
+                # Email to Admin
+                resend.Emails.send({
+                    "from": "Mr. Car System <onboarding@resend.dev>",
+                    "to": os.environ.get("ADMIN_EMAIL", verified_email),
+                    "subject": f"📅 Nueva Cita Agendada: {data.get('appointmentDate')}",
+                    "html": generate_appointment_html(data, "Nueva Cita Agendada")
+                })
+                
+                email_status = "sent"
+                print("✅ Appointment emails sent")
+
+            except Exception as e:
+                print(f"❌ Error sending appointment emails: {e}")
+                email_status = "error"
+
+        return jsonify({"success": True, "email_status": email_status})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
@@ -410,5 +525,6 @@ if __name__ == '__main__':
     print("   - GET /api/vehicle/<plate>")
     print("   - GET /api/market-price?make=X&model=Y&year=Z&mileage=M")
     print("   - POST /api/submit-lead")
+    print("   - POST /api/schedule-appointment")
     print("\n" + "="*60 + "\n")
     app.run(debug=True, host='0.0.0.0', port=8080)
