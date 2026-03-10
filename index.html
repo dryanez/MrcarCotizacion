@@ -48,11 +48,13 @@
         .logo img {
             width: 120px;
             height: 120px;
-            object-fit: cover;
+            object-fit: contain;
+            object-position: center;
             border-radius: 50%;
-            border: 5px solid #171719;
+            border: 4px solid #171719;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
             background: #171719;
+            padding: 12px;
         }
 
         h1 {
@@ -857,7 +859,7 @@ Versión: ${formData.version || 'No especificada'}
 Kilometraje: ${formData.mileage} km
 Precio Mercado: $${formData.pricing.market_price}`;
 
-                    const phone = '56968517995'; // Mr. Car Number
+                    const phone = '56940441470'; // Autodirecto WhatsApp
                     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
                     if (whatsappWindow) {
